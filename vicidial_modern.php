@@ -400,11 +400,17 @@ hr {
    ============================================================ */
 
 /* ---------- Shell ---------- */
-body > center { display: block; }
+html, body { height: 100%; }
+body > center { display: block; min-height: 100%; }
 
 #vici-shell {
 	display: grid;
 	grid-template-columns: <?php echo $MODsidebar_w; ?>px minmax(0, 1fr);
+	/* La primera fila (barra lateral + contenido) se queda con todo el alto
+	   sobrante para que ninguna columna termine a media pantalla; la segunda
+	   (pie del sidebar) ocupa solo lo que necesita. */
+	grid-template-rows: 1fr auto;
+	min-height: 100vh;
 	width: 100%;
 	margin: 0;
 	border-radius: 0;
@@ -552,7 +558,11 @@ body > center { display: block; }
 	color: rgba(255,255,255,.55) !important;
 }
 .vici-sidefoot a font, .vici-sidefoot font a { color: rgba(255,255,255,.7) !important; }
-.vici-sidefoot br + br { display: none; }
+/* Solo los dos <br> de relleno que abren el bloque. Ojo: no vale "br + br",
+   porque un <br> oculto sigue contando como hermano y se llevaria por delante
+   el salto de linea que separa VERSION de BUILD. */
+.vici-sidefoot font > br:first-child,
+.vici-sidefoot font > br:first-child + br { display: none; }
 
 /* ---------- Contenido ---------- */
 #vici-main {
@@ -571,7 +581,13 @@ body > center { display: block; }
 	top: 0;
 	z-index: 30;
 	width: 100%;
-	background-color: <?php echo mod_tint($MODframe, 0.22); ?>;
+	height: auto;          /* anula el HEIGHT=15 del markup */
+	background: transparent;
+}
+/* admin_header.php emite una fila sin celdas debajo de la cabecera; sin esto
+   deja una banda vacia entre el header y el contenido. */
+#vici-topbar-table > tbody > tr:not(:has(td)) {
+	display: none;
 }
 tr.vici-topbar > td {
 	padding: 9px 16px;
