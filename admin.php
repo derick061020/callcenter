@@ -53877,7 +53877,7 @@ $ENDtime = date("U");
 $RUNtime = ($ENDtime - $STARTtime);
 
 echo "</TD></TR>\n";
-echo "<TR><TD bgcolor=#$SSmenu_background ALIGN=CENTER>\n";
+echo "<TR><TD CLASS=\"vici-sidefoot\" bgcolor=#$SSmenu_background ALIGN=CENTER>\n";
 echo "<FONT STYLE=\"font-family:HELVETICA;font-size:9;color:white;\"><br><br><!-- RUNTIME: $RUNtime seconds<BR> -->";
 echo _QXZ("VERSION").": $admin_version<BR>";
 echo _QXZ("BUILD").": $build\n";

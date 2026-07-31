@@ -21,6 +21,10 @@ $MODrow2   = (isset($SSstd_row2_background)) ? $SSstd_row2_background : 'B9CBFD'
 $MODrow3   = (isset($SSstd_row3_background)) ? $SSstd_row3_background : '8EBCFD';
 $MODrow4   = (isset($SSstd_row4_background)) ? $SSstd_row4_background : 'B6D3FC';
 
+# Ancho de la barra lateral. El markup original la fija en 170px; con 226px
+# los nombres largos del menu dejan de partirse en dos lineas.
+$MODsidebar_w = 226;
+
 # Mezcla un color del tema con blanco para obtener un tono plano y claro.
 # Se emite el resultado calculado y, ademas, la version color-mix() para que el
 # navegador use el valor exacto del tema si lo soporta.
@@ -33,6 +37,22 @@ function mod_tint($hex, $pct)
 		{
 		$c = hexdec(substr($hex, $i * 2, 2));
 		$out .= str_pad(dechex((int)round($c * $pct + 255 * (1 - $pct))), 2, '0', STR_PAD_LEFT);
+		}
+	return strtoupper($out);
+	}
+
+# Aclara ($f > 1) u oscurece ($f < 1) un color, para degradados y relieves.
+function mod_shade($hex, $f)
+	{
+	$hex = preg_replace('/[^0-9A-Fa-f]/', '', $hex);
+	if (strlen($hex) != 6) {return '#000000';}
+	$out = '#';
+	for ($i = 0; $i < 3; $i++)
+		{
+		$c = (int)round(hexdec(substr($hex, $i * 2, 2)) * $f);
+		if ($c > 255) {$c = 255;}
+		if ($c < 0)   {$c = 0;}
+		$out .= str_pad(dechex($c), 2, '0', STR_PAD_LEFT);
 		}
 	return strtoupper($out);
 	}
@@ -101,15 +121,6 @@ span.android_offbutton, span.android_onbutton {
 font[size="1"] { font-size: 11px; }
 font[size="2"] { font-size: 13px; }
 
-/* ---------- Contenedor principal ---------- */
-body > center > table {
-	box-shadow: var(--vici-shadow);
-	border-radius: var(--vici-radius);
-	overflow: hidden;
-	margin-top: 10px;
-	margin-bottom: 18px;
-}
-
 /* ---------- Paleta suavizada ----------
    Los fondos del tema son muy saturados para pantallas grandes. Se sustituyen
    por tintes planos del MISMO color, manteniendo la identidad del esquema
@@ -164,83 +175,6 @@ tr[bgcolor="#FFCCCC" i] > td, tr[bgcolor="#CC99FF" i] > td,
 tr[bgcolor="#CCFFFF" i] > td, tr[bgcolor="#99FFCC" i] > td {
 	padding: 5px 8px;
 	border-bottom: 1px solid rgba(15,23,42,.10);
-}
-
-/* ---------- Barra superior (HOME | Timeclock | Chat | Logout) ---------- */
-tr[bgcolor="#<?php echo $MODmenu; ?>" i] > td {
-	padding: 6px 10px;
-	background-color: var(--vici-menu);
-	background-image: linear-gradient(180deg, rgba(255,255,255,.07), rgba(0,0,0,.10));
-}
-tr[bgcolor="#<?php echo $MODmenu; ?>" i] a {
-	padding: 2px 6px;
-	border-radius: 5px;
-	transition: background-color .15s ease;
-}
-tr[bgcolor="#<?php echo $MODmenu; ?>" i] a:hover {
-	background-color: rgba(255,255,255,.18);
-	opacity: 1;
-}
-
-/* Espacio inferior en el area de contenido */
-td[bgcolor="#<?php echo $MODframe; ?>" i] {
-	padding-bottom: 14px;
-}
-
-/* ---------- Barra lateral de navegacion ---------- */
-td[width="170"][bgcolor],
-table[width="160"] {
-	background-color: var(--vici-menu);
-	background-image: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.14));
-}
-td[width="170"][bgcolor] img[alt="System logo"] {
-	border-radius: var(--vici-radius-sm);
-	margin: 6px 0 2px 0;
-}
-table[width="160"] td {
-	padding: 1px 6px;
-}
-/* Ojo: los enlaces NO deben ser display:block. El markup original los precede
-   de un "&nbsp;" suelto, asi que un bloque los empuja a una segunda linea y
-   duplica el alto de cada fila. */
-table[width="160"] a {
-	transition: color .15s ease;
-}
-/* Los sub-enlaces del menu heredan un font-size invalido del markup original
-   ("font-size:11" sin unidad), lo que los deja en 16px. Se fija un tamano
-   coherente con el resto de la interfaz. */
-table[width="160"] font {
-	font-size: 12px;
-}
-table[width="160"] tr[bgcolor] font,
-table[width="160"] tr[class^="head_style"] font {
-	font-size: 13px;
-	font-weight: 500;
-}
-tr.head_style,
-tr.subhead_style {
-	background-color: transparent;
-	transition: background-color .15s ease;
-}
-tr.head_style:hover     { background-color: rgba(255,255,255,.14); }
-tr.subhead_style        { background-color: rgba(255,255,255,.86); }
-tr.subhead_style:hover  { background-color: #ffffff; }
-tr.head_style_selected,
-tr.head_style_selected:hover {
-	background-color: #ffffff;
-	box-shadow: inset 4px 0 0 var(--vici-menu);
-}
-tr.subhead_style_selected,
-tr.subhead_style_selected:hover {
-	background-color: <?php echo mod_tint($MODmenu, 0.10); ?>;
-	box-shadow: inset 4px 0 0 var(--vici-menu);
-	font-weight: 600;
-}
-.horiz_line {
-	border-bottom: 1px solid rgba(255,255,255,.13);
-}
-.horiz_line_grey {
-	border-bottom: 1px solid rgba(148,163,184,.55);
 }
 
 /* ---------- Filas de tablas / listados ---------- */
@@ -455,8 +389,237 @@ hr {
 }
 ::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
 
+/* ============================================================
+   LAYOUT: SHELL + HEADER + SIDEBAR
+   ------------------------------------------------------------
+   admin_header.php marca la estructura con #vici-shell (tabla
+   contenedora), #vici-sidebar, #vici-main, .vici-nav, .vici-topbar y
+   .vici-sidefoot. Aqui esa tabla de maquetacion se convierte en un grid
+   de dos columnas: barra lateral fija a la izquierda y contenido fluido
+   con cabecera pegada arriba.
+   ============================================================ */
+
+/* ---------- Shell ---------- */
+body > center { display: block; }
+
+#vici-shell {
+	display: grid;
+	grid-template-columns: <?php echo $MODsidebar_w; ?>px minmax(0, 1fr);
+	width: 100%;
+	margin: 0;
+	border-radius: 0;
+	box-shadow: none;
+	background: transparent;
+}
+/* Las filas desaparecen como caja para que las celdas sean items del grid:
+   fila 1 -> [sidebar | contenido], fila 2 -> [pie del sidebar | vacio] */
+#vici-shell > tbody,
+#vici-shell > tbody > tr {
+	display: contents;
+}
+#vici-shell > tbody > tr > td {
+	display: block;
+	width: auto;          /* anula los WIDTH=170 / WIDTH=870 del markup */
+	vertical-align: top;
+}
+
+/* ---------- Barra lateral ---------- */
+#vici-sidebar {
+	background-color: var(--vici-menu);
+	background-image: linear-gradient(180deg,
+		<?php echo mod_shade($MODmenu, 1.22); ?> 0%,
+		<?php echo mod_shade($MODmenu, 0.78); ?> 100%);
+	padding: 0 0 8px 0;
+	text-align: left;
+	box-shadow: inset -1px 0 0 rgba(0,0,0,.20);
+}
+#vici-sidebar .vici-nav-sticky {
+	position: sticky;
+	top: 0;
+	max-height: 100vh;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding-bottom: 8px;
+}
+#vici-sidebar .vici-nav-sticky::-webkit-scrollbar-thumb {
+	background-color: rgba(255,255,255,.28);
+}
+#vici-sidebar .vici-nav-sticky { scrollbar-color: rgba(255,255,255,.28) transparent; }
+
+/* Marca */
+#vici-sidebar .vici-brand {
+	display: block;
+	padding: 14px 14px 8px 14px;
+	line-height: 0;
+}
+#vici-sidebar .vici-brand:hover { opacity: 1; }
+#vici-sidebar .vici-brand img {
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--vici-radius-sm);
+}
+#vici-sidebar > .vici-nav-sticky > b {
+	display: block;
+	padding: 0 16px 12px 16px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: .14em;
+	color: rgba(255,255,255,.55);
+}
+#vici-sidebar > .vici-nav-sticky > b font { color: inherit !important; }
+/* El <BR> tras el titulo sobra con el nuevo espaciado */
+#vici-sidebar > .vici-nav-sticky > br { display: none; }
+
+/* ---------- Navegacion ---------- */
+.vici-nav {
+	width: 100%;
+	background: transparent;
+	border-collapse: collapse;
+}
+.vici-nav > tbody > tr {
+	background-color: transparent;
+	transition: background-color .13s ease, box-shadow .13s ease;
+}
+.vici-nav td {
+	padding: 4px 14px;
+	border: 0;
+}
+/* Ojo: los enlaces NO deben ser display:block. El markup original los precede
+   de un "&nbsp;" suelto, asi que un bloque los empuja a una segunda linea y
+   duplica el alto de cada fila. */
+.vici-nav a {
+	text-decoration: none;
+	transition: color .13s ease;
+}
+.vici-nav a:hover { opacity: 1; }
+.vici-nav img { vertical-align: middle; margin-right: 2px; }
+
+/* El markup trae font-size sin unidad ("font-size:11"), que el navegador
+   descarta; se fijan tamanos coherentes. Los colores en linea (color:BLACK)
+   solo se pueden reemplazar con !important. */
+.vici-nav font {
+	font-size: 12.5px;
+	color: rgba(255,255,255,.72) !important;
+}
+.vici-nav tr[bgcolor] font,
+.vici-nav tr[class^="head_style"] font {
+	font-size: 13px;
+	font-weight: 600;
+	color: rgba(255,255,255,.95) !important;
+}
+.vici-nav tr:hover font { color: #ffffff !important; }
+
+/* Estados */
+.vici-nav > tbody > tr:hover {
+	background-color: rgba(255,255,255,.09);
+}
+.vici-nav > tbody > tr[class$="_selected"] {
+	background-color: rgba(255,255,255,.16);
+	box-shadow: inset 3px 0 0 #ffffff;
+}
+.vici-nav > tbody > tr[class$="_selected"] font {
+	color: #ffffff !important;
+	font-weight: 600;
+}
+/* Sub-elementos: sangria y tipografia menor */
+.vici-nav tr[class^="subhead"] td {
+	padding-left: 22px;
+}
+.vici-nav tr[class^="subhead"] font { font-size: 12px; }
+
+.horiz_line {
+	height: 0;
+	margin: 6px 0;
+	border-bottom: 1px solid rgba(255,255,255,.11);
+	font-size: 1px;
+}
+.horiz_line_grey {
+	border-bottom: 1px solid rgba(148,163,184,.45);
+}
+
+/* Pie del sidebar (version / build) */
+.vici-sidefoot {
+	background-color: var(--vici-menu);
+	background-image: linear-gradient(180deg,
+		<?php echo mod_shade($MODmenu, 0.78); ?> 0%,
+		<?php echo mod_shade($MODmenu, 0.66); ?> 100%);
+	padding: 14px 12px 20px 12px;
+	text-align: center;
+}
+.vici-sidefoot font {
+	font-size: 10.5px !important;
+	line-height: 1.6;
+	color: rgba(255,255,255,.55) !important;
+}
+.vici-sidefoot a font, .vici-sidefoot font a { color: rgba(255,255,255,.7) !important; }
+.vici-sidefoot br + br { display: none; }
+
+/* ---------- Contenido ---------- */
+#vici-main {
+	background-color: <?php echo mod_tint($MODframe, 0.22); ?>;
+	padding: 0 0 28px 0;
+	min-width: 0;
+}
+
+/* ---------- Cabecera pegada ---------- */
+/* La cabecera se fija sobre la TABLA, no sobre el <TR>: un elemento sticky
+   solo puede desplazarse dentro de su bloque contenedor, y el de una fila es
+   su propia tabla (40px de alto). Sobre la tabla, el bloque contenedor pasa a
+   ser #vici-main, asi que acompana a todo el scroll de la pagina. */
+#vici-topbar-table {
+	position: sticky;
+	top: 0;
+	z-index: 30;
+	width: 100%;
+	background-color: <?php echo mod_tint($MODframe, 0.22); ?>;
+}
+tr.vici-topbar > td {
+	padding: 9px 16px;
+	background-color: var(--vici-menu);
+	background-image: linear-gradient(180deg,
+		<?php echo mod_shade($MODmenu, 1.14); ?> 0%,
+		<?php echo mod_shade($MODmenu, 0.92); ?> 100%);
+	box-shadow: 0 1px 0 rgba(0,0,0,.18), 0 2px 10px rgba(15,23,42,.10);
+}
+tr.vici-topbar font { font-size: 12px; }
+tr.vici-topbar a {
+	padding: 4px 9px;
+	border-radius: 6px;
+	text-decoration: none;
+	transition: background-color .13s ease;
+}
+tr.vici-topbar a:hover {
+	background-color: rgba(255,255,255,.16);
+	opacity: 1;
+}
+/* Fecha a la derecha: menos peso visual que los enlaces */
+tr.vici-topbar > td[align="right" i] font,
+tr.vici-topbar > td[align="RIGHT"] font {
+	font-size: 11.5px;
+	font-weight: 500;
+	color: rgba(255,255,255,.72);
+}
+
+/* Barra de sub-navegacion justo debajo de la cabecera */
+#vici-topbar-table > tbody > tr + tr > td {
+	padding: 6px 16px;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+	#vici-shell { grid-template-columns: 1fr; }
+	#vici-sidebar .vici-nav-sticky {
+		position: static;
+		max-height: none;
+	}
+	#vici-sidebar { box-shadow: none; }
+}
+
 /* No aplicar el fondo/sombra global al imprimir */
 @media print {
 	body { background: #ffffff; }
 	body > center > table { box-shadow: none; }
+	#vici-shell { grid-template-columns: 1fr; }
+	#vici-sidebar, .vici-sidefoot { display: none; }
+	tr.vici-topbar, tr.vici-topbar > td { position: static; }
 }
