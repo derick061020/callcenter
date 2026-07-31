@@ -16,6 +16,41 @@
 $MODmenu   = (isset($SSmenu_background))   ? $SSmenu_background   : '015B91';
 $MODframe  = (isset($SSframe_background))  ? $SSframe_background  : 'D9E6FE';
 $MODbutton = (isset($SSbutton_color))      ? $SSbutton_color      : 'EFEFEF';
+$MODrow1   = (isset($SSstd_row1_background)) ? $SSstd_row1_background : '9BB9FB';
+$MODrow2   = (isset($SSstd_row2_background)) ? $SSstd_row2_background : 'B9CBFD';
+$MODrow3   = (isset($SSstd_row3_background)) ? $SSstd_row3_background : '8EBCFD';
+$MODrow4   = (isset($SSstd_row4_background)) ? $SSstd_row4_background : 'B6D3FC';
+
+# Mezcla un color del tema con blanco para obtener un tono plano y claro.
+# Se emite el resultado calculado y, ademas, la version color-mix() para que el
+# navegador use el valor exacto del tema si lo soporta.
+function mod_tint($hex, $pct)
+	{
+	$hex = preg_replace('/[^0-9A-Fa-f]/', '', $hex);
+	if (strlen($hex) != 6) {return '#FFFFFF';}
+	$out = '#';
+	for ($i = 0; $i < 3; $i++)
+		{
+		$c = hexdec(substr($hex, $i * 2, 2));
+		$out .= str_pad(dechex((int)round($c * $pct + 255 * (1 - $pct))), 2, '0', STR_PAD_LEFT);
+		}
+	return strtoupper($out);
+	}
+
+# Reglas que reemplazan un color de fondo del tema por su version suavizada,
+# tanto si viene por atributo BGCOLOR como por clase CSS.
+function mod_soften($hex, $pct, $extra = '')
+	{
+	$hex  = preg_replace('/[^0-9A-Fa-f]/', '', $hex);
+	$tint = mod_tint($hex, $pct);
+	$sel  = "tr[bgcolor=\"#$hex\" i], td[bgcolor=\"#$hex\" i], th[bgcolor=\"#$hex\" i], table[bgcolor=\"#$hex\" i]";
+	$mix  = round($pct * 100);
+	echo "$sel {\n";
+	echo "\tbackground-color: $tint;\n";
+	echo "\tbackground-color: color-mix(in srgb, #$hex {$mix}%, white);\n";
+	if ($extra != '') {echo "\t$extra\n";}
+	echo "}\n";
+	}
 ?>
 
 /* ============================================================
@@ -73,6 +108,83 @@ body > center > table {
 	margin-bottom: 18px;
 }
 
+/* ---------- Paleta suavizada ----------
+   Los fondos del tema son muy saturados para pantallas grandes. Se sustituyen
+   por tintes planos del MISMO color, manteniendo la identidad del esquema
+   configurado en Admin -> System Settings pero con mucho menos ruido visual.
+   Los colores alt_row (verdes) NO se tocan: indican estado. */
+<?php
+mod_soften($MODframe, 0.22);                                            /* fondo del area de contenido */
+mod_soften($MODrow4,  0.16);                                            /* filas de formulario */
+mod_soften($MODrow2,  0.16);                                            /* filas alternas */
+mod_soften($MODrow3,  0.20);                                            /* filas destacadas */
+mod_soften($MODrow1,  0.34, 'font-weight: 600;');                       /* cabeceras de tabla */
+?>
+/* Cabeceras de listado: separador inferior en el color del tema */
+tr[bgcolor="#<?php echo $MODrow1; ?>" i] > td,
+tr[bgcolor="#<?php echo $MODrow1; ?>" i] > th {
+	border-bottom: 2px solid rgba(15,23,42,.14);
+	padding-top: 5px;
+	padding-bottom: 5px;
+	color: #1e293b;
+}
+/* Las mismas equivalencias cuando el color llega por clase */
+.std_row1 { background-color: <?php echo mod_tint($MODrow1, 0.34); ?>; }
+.std_row2 { background-color: <?php echo mod_tint($MODrow2, 0.16); ?>; }
+.std_row3 { background-color: <?php echo mod_tint($MODrow3, 0.20); ?>; }
+.std_row4 { background-color: <?php echo mod_tint($MODrow4, 0.16); ?>; }
+
+/* Filas de formulario: realce al pasar el raton */
+tr[bgcolor="#<?php echo $MODrow4; ?>" i]:hover,
+tr[bgcolor="#<?php echo $MODrow2; ?>" i]:hover {
+	background-color: <?php echo mod_tint($MODrow4, 0.30); ?>;
+}
+
+/* Listados: fondo claro con separadores en vez de bloques de color */
+.records_list_x { background-color: #ffffff; }
+.records_list_y { background-color: <?php echo mod_tint($MODrow2, 0.10); ?>; }
+.records_list_x > td, .records_list_y > td {
+	border-bottom: 1px solid rgba(15,23,42,.07);
+}
+
+/* ---------- Barras de sub-navegacion ----------
+   admin.php define estos colores fijos para las barras de seccion; los tonos
+   puros (magenta, naranja, amarillo) se rebajan a pasteles. */
+<?php
+$MODsubbars = array('FF9933','FFFF99','FFCC99','FFCCCC','CC99FF','CCFFCC',
+                    'CCFFFF','99FFCC','CCCCCC','FF99FF','99FF33','FF33FF');
+foreach ($MODsubbars as $MODc) {mod_soften($MODc, 0.28);}
+?>
+tr[bgcolor="#FF33FF" i] > td, tr[bgcolor="#FF9933" i] > td,
+tr[bgcolor="#99FF33" i] > td, tr[bgcolor="#FF99FF" i] > td,
+tr[bgcolor="#FFFF99" i] > td, tr[bgcolor="#FFCC99" i] > td,
+tr[bgcolor="#FFCCCC" i] > td, tr[bgcolor="#CC99FF" i] > td,
+tr[bgcolor="#CCFFFF" i] > td, tr[bgcolor="#99FFCC" i] > td {
+	padding: 5px 8px;
+	border-bottom: 1px solid rgba(15,23,42,.10);
+}
+
+/* ---------- Barra superior (HOME | Timeclock | Chat | Logout) ---------- */
+tr[bgcolor="#<?php echo $MODmenu; ?>" i] > td {
+	padding: 6px 10px;
+	background-color: var(--vici-menu);
+	background-image: linear-gradient(180deg, rgba(255,255,255,.07), rgba(0,0,0,.10));
+}
+tr[bgcolor="#<?php echo $MODmenu; ?>" i] a {
+	padding: 2px 6px;
+	border-radius: 5px;
+	transition: background-color .15s ease;
+}
+tr[bgcolor="#<?php echo $MODmenu; ?>" i] a:hover {
+	background-color: rgba(255,255,255,.18);
+	opacity: 1;
+}
+
+/* Espacio inferior en el area de contenido */
+td[bgcolor="#<?php echo $MODframe; ?>" i] {
+	padding-bottom: 14px;
+}
+
 /* ---------- Barra lateral de navegacion ---------- */
 td[width="170"][bgcolor],
 table[width="160"] {
@@ -100,11 +212,15 @@ tr.head_style:hover     { background-color: rgba(255,255,255,.14); }
 tr.subhead_style        { background-color: rgba(255,255,255,.86); }
 tr.subhead_style:hover  { background-color: #ffffff; }
 tr.head_style_selected,
-tr.head_style_selected:hover,
+tr.head_style_selected:hover {
+	background-color: #ffffff;
+	box-shadow: inset 4px 0 0 var(--vici-menu);
+}
 tr.subhead_style_selected,
 tr.subhead_style_selected:hover {
-	background-color: #ffffff;
-	box-shadow: inset 3px 0 0 rgba(0,0,0,.30);
+	background-color: <?php echo mod_tint($MODmenu, 0.10); ?>;
+	box-shadow: inset 4px 0 0 var(--vici-menu);
+	font-weight: 600;
 }
 .horiz_line {
 	border-bottom: 1px solid rgba(255,255,255,.22);
