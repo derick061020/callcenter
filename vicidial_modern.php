@@ -61,8 +61,10 @@ function mod_soften($hex, $pct, $extra = '')
 	--vici-menu:    #<?php echo $MODmenu; ?>;
 	--vici-frame:   #<?php echo $MODframe; ?>;
 	--vici-accent:  #<?php echo $MODmenu; ?>;
-	--vici-font:    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
-	--vici-mono:    ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+	/* Sin "system-ui": en Linux puede resolver a una fuente monoespaciada
+	   segun la configuracion de fontconfig. Se listan familias concretas. */
+	--vici-font:    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", "Open Sans", "Liberation Sans", "DejaVu Sans", Arial, Helvetica, sans-serif;
+	--vici-mono:    "SF Mono", Menlo, Consolas, "Liberation Mono", "DejaVu Sans Mono", "Courier New", monospace;
 	--vici-radius:  8px;
 	--vici-radius-sm: 6px;
 	--vici-border:  #d3dbe6;
@@ -223,7 +225,7 @@ tr.subhead_style_selected:hover {
 	font-weight: 600;
 }
 .horiz_line {
-	border-bottom: 1px solid rgba(255,255,255,.22);
+	border-bottom: 1px solid rgba(255,255,255,.13);
 }
 .horiz_line_grey {
 	border-bottom: 1px solid rgba(148,163,184,.55);
