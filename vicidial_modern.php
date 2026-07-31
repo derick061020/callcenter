@@ -200,22 +200,22 @@ td[width="170"][bgcolor] img[alt="System logo"] {
 table[width="160"] td {
 	padding: 1px 6px;
 }
+/* Ojo: los enlaces NO deben ser display:block. El markup original los precede
+   de un "&nbsp;" suelto, asi que un bloque los empuja a una segunda linea y
+   duplica el alto de cada fila. */
 table[width="160"] a {
-	display: block;
-	line-height: 1.35;
-	border-radius: var(--vici-radius-sm);
 	transition: color .15s ease;
 }
 /* Los sub-enlaces del menu heredan un font-size invalido del markup original
    ("font-size:11" sin unidad), lo que los deja en 16px. Se fija un tamano
    coherente con el resto de la interfaz. */
-table[width="160"] tr[class^="subhead"] a,
-table[width="160"] tr[class^="subhead"] font {
+table[width="160"] font {
 	font-size: 12px;
 }
-table[width="160"] tr[class^="head_style"] a,
+table[width="160"] tr[bgcolor] font,
 table[width="160"] tr[class^="head_style"] font {
 	font-size: 13px;
+	font-weight: 500;
 }
 tr.head_style,
 tr.subhead_style {
