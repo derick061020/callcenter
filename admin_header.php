@@ -2223,6 +2223,7 @@ if (!isset($subcamp_font_size) || $subcamp_font_size < 4) {$subcamp_font_size='1
 			$custom_sh="CLASS=\"subhead_style\"";
 			$cpcust_sh="CLASS=\"subhead_style\"";
 			$droplist_sh="CLASS=\"subhead_style\"";
+			$panel_sh="CLASS=\"subhead_style\"";
 
 			if (isset($LOGdelete_from_dnc) && $LOGdelete_from_dnc > 0) {$DNClink = _QXZ("Add-Delete DNC Number");}
 			else {$DNClink = _QXZ("Add DNC Number");}
@@ -2236,6 +2237,7 @@ if (!isset($subcamp_font_size) || $subcamp_font_size < 4) {$subcamp_font_size='1
 			if ($sh=='custom') {$custom_sh="CLASS=\"subhead_style_selected\"";}
 			if ($sh=='cpcust') {$cpcust_sh="CLASS=\"subhead_style_selected\"";}
 			if ($sh=='droplist') {$droplist_sh="CLASS=\"subhead_style_selected\"";}
+			if ($sh=='panel') {$panel_sh="CLASS=\"subhead_style_selected\"";}
 
 			?>
 			<TR <?php echo $list_sh ?><?php if ($SSadmin_row_click > 0) {echo " onclick=\"window.document.location='$ADMIN?ADD=100';\"";} ?>><TD ALIGN=LEFT> &nbsp; 
@@ -2246,6 +2248,8 @@ if (!isset($subcamp_font_size) || $subcamp_font_size < 4) {$subcamp_font_size='1
 			</TR><TR <?php echo $search_sh ?><?php if ($SSadmin_row_click > 0) {echo " onclick=\"window.document.location='admin_search_lead.php';\"";} ?>><TD ALIGN=LEFT> &nbsp; 
 			<?php } ?>
 			<a href="admin_search_lead.php" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:<?php echo $subcamp_font_size ?>;color:BLACK;"> <?php echo _QXZ("Search For A Lead"); ?> </a>
+			</TR><TR <?php echo $panel_sh ?><?php if ($SSadmin_row_click > 0) {echo " onclick=\"window.document.location='admin_leads_panel.php';\"";} ?>><TD ALIGN=LEFT> &nbsp;
+			<a href="admin_leads_panel.php" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:<?php echo $subcamp_font_size ?>;color:BLACK;"> Panel de Leads </a>
 			</TR><TR <?php echo $lead_sh ?><?php if ($SSadmin_row_click > 0) {echo " onclick=\"window.document.location='admin_modify_lead.php';\"";} ?>><TD ALIGN=LEFT> &nbsp; 
 			<a href="admin_modify_lead.php" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:<?php echo $subcamp_font_size ?>;color:BLACK;"> <?php echo _QXZ("Add A New Lead"); ?> </a>
 			</TR><TR <?php echo $dnc_sh ?><?php if ($SSadmin_row_click > 0) {echo " onclick=\"window.document.location='$ADMIN?ADD=121';\"";} ?>><TD ALIGN=LEFT> &nbsp; 

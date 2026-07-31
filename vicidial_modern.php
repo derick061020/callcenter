@@ -621,6 +621,33 @@ tr.vici-topbar > td[align="RIGHT"] font {
 	padding: 6px 16px;
 }
 
+/* ---------- Globo de ayuda ----------
+   help.js lo posiciona en coordenadas de pagina con position:absolute, pero el
+   markup original no le da z-index, asi que queda por detras del contenido.
+   Se sube por encima de todo (la cabecera pegada usa z-index 30). */
+#HelpDisplayDiv, div.help_info {
+	z-index: 9000;
+	max-width: 380px;
+}
+#HelpDisplayDiv table.help_td, table.help_td {
+	background: #ffffff !important;
+	border: 1px solid var(--vici-border) !important;
+	border-radius: var(--vici-radius) !important;
+	box-shadow: 0 6px 24px rgba(15,23,42,.18) !important;
+	padding: 4px 6px !important;
+}
+#HelpDisplayDiv .help_bold {
+	font-size: 12.5px;
+	color: #0f172a;
+}
+/* Boton [X] de cierre */
+#HelpDisplayDiv td[onclick] {
+	cursor: pointer;
+	color: #64748b;
+	transition: color .13s ease;
+}
+#HelpDisplayDiv td[onclick]:hover { color: #c62828; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
 	#vici-shell { grid-template-columns: 1fr; }
