@@ -56,6 +56,13 @@ function lp_h($str)
 	return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
 	}
 
+# Verdadero si el valor traido de la base tiene contenido. Se usa en lugar de
+# strlen() porque las columnas que admiten NULL disparan avisos en PHP 8.
+function lp_hay($valor)
+	{
+	return (strlen((string)$valor) > 0);
+	}
+
 $DB =			lp_req('DB',0);
 $action =		lp_req('action','');
 $row_action =	lp_req('row_action','');
@@ -275,7 +282,7 @@ $LP_TIPOS = array(
 	'CONTACTADO' => array(
 		'nombre' => 'Contactado',
 		'ayuda'  => 'Se logro hablar con la persona',
-		'color'  => '#1e8e3e',
+		'color'  => '#2e6b4f',
 		'estado' => 'CONTAC',
 		'estado_nombre' => 'Contactado',
 		'flags'  => array('human_answered'=>'Y','customer_contact'=>'Y'),
@@ -283,7 +290,7 @@ $LP_TIPOS = array(
 	'NO_CONTACTADO' => array(
 		'nombre' => 'No contactado',
 		'ayuda'  => 'Todavia no se hablo con nadie',
-		'color'  => '#64748b',
+		'color'  => '#6b7280',
 		'estado' => 'NOCONT',
 		'estado_nombre' => 'No Contactado',
 		'flags'  => array(),
@@ -291,7 +298,7 @@ $LP_TIPOS = array(
 	'AGENDADO' => array(
 		'nombre' => 'Agendado a futuro',
 		'ayuda'  => 'Con recontacto programado, avisa al llegar la hora',
-		'color'  => '#b45309',
+		'color'  => '#8a6234',
 		'estado' => 'CALLBK',
 		'estado_nombre' => 'Call Back',
 		'flags'  => array('human_answered'=>'Y','customer_contact'=>'Y','scheduled_callback'=>'Y'),
@@ -299,7 +306,7 @@ $LP_TIPOS = array(
 	'ERRONEO' => array(
 		'nombre' => 'Contacto erroneo',
 		'ayuda'  => 'Numero equivocado, desconectado o datos malos',
-		'color'  => '#c62828',
+		'color'  => '#9c3a3a',
 		'estado' => 'ERRCON',
 		'estado_nombre' => 'Contacto Erroneo',
 		'flags'  => array('unworkable'=>'Y'),
@@ -307,7 +314,7 @@ $LP_TIPOS = array(
 	'PREVENTA' => array(
 		'nombre' => 'Preventa',
 		'ayuda'  => 'Lead calificado, listo para venderle',
-		'color'  => '#6d28d9',
+		'color'  => '#015b91',
 		'estado' => 'PREVTA',
 		'estado_nombre' => 'Preventa',
 		'flags'  => array('human_answered'=>'Y','customer_contact'=>'Y'),
@@ -353,7 +360,7 @@ while ($sq < count($status_queries))
 		if ($sq == 0) {$LP_ESTADOS_EXISTENTES[$st] = 1;}
 		if (isset($LP_ESTADO_TIPO[$st])) {$o++; continue;}		# vicidial_statuses manda
 
-		$LP_ESTADO_NOMBRE[$st] = (strlen($rowS[1]) > 0) ? $rowS[1] : $st;
+		$LP_ESTADO_NOMBRE[$st] = (lp_hay($rowS[1])) ? $rowS[1] : $st;
 
 		if (isset($LP_ESTADOS_FIJOS[$st]))
 			{$LP_ESTADO_TIPO[$st] = $LP_ESTADOS_FIJOS[$st];}
@@ -601,7 +608,9 @@ function lp_avisos($limite=50)
 	$miosSQL = ($solo_mios > 0) ? " and vc.user='" . lp_esc($PHP_AUTH_USER) . "'" : "";
 	$limite = (int)$limite;
 
-	$stmt="SELECT vc.callback_id,vc.lead_id,vc.callback_time,vc.comments,vc.user,vc.recipient,vc.campaign_id,vc.list_id,vl.first_name,vl.last_name,vl.phone_number,vl.status from vicidial_callbacks vc LEFT JOIN vicidial_list vl ON vl.lead_id=vc.lead_id where vc.status IN('ACTIVE','LIVE') and vc.callback_time <= DATE_ADD(NOW(), INTERVAL $LP_AVISO_MINUTOS MINUTE)$restrictSQL$miosSQL order by vc.callback_time asc limit $limite;";
+	# Los minutos que faltan se calculan en la base y no en PHP: asi el aviso no
+	# depende de que el reloj de MySQL y el de PHP tengan la misma zona horaria.
+	$stmt="SELECT vc.callback_id,vc.lead_id,vc.callback_time,vc.comments,vc.user,vc.recipient,vc.campaign_id,vc.list_id,vl.first_name,vl.last_name,vl.phone_number,vl.status,TIMESTAMPDIFF(MINUTE,NOW(),vc.callback_time) as minutos from vicidial_callbacks vc LEFT JOIN vicidial_list vl ON vl.lead_id=vc.lead_id where vc.status IN('ACTIVE','LIVE') and vc.callback_time <= DATE_ADD(NOW(), INTERVAL $LP_AVISO_MINUTOS MINUTE)$restrictSQL$miosSQL order by vc.callback_time asc limit $limite;";
 	$rslt=mysql_to_mysqli($stmt, $link);
 	$ct = mysqli_num_rows($rslt);
 	$items = array();
@@ -610,7 +619,7 @@ function lp_avisos($limite=50)
 	while ($ct > $o)
 		{
 		$r = mysqli_fetch_assoc($rslt);
-		$falta = round((strtotime($r['callback_time']) - time()) / 60);
+		$falta = (int)$r['minutos'];
 		if ($falta <= 0) {$vencidos++;}
 		$nombre = trim($r['first_name'] . ' ' . $r['last_name']);
 		if (strlen($nombre) < 1) {$nombre = 'Lead ' . $r['lead_id'];}
@@ -631,7 +640,11 @@ function lp_avisos($limite=50)
 			);
 		$o++;
 		}
-	return array('vencidos'=>$vencidos, 'items'=>$items);
+	# La hora que se muestra tambien sale de la base, por el mismo motivo
+	$rsltN = mysql_to_mysqli("SELECT NOW();", $link);
+	$rowN = mysqli_fetch_row($rsltN);
+
+	return array('vencidos'=>$vencidos, 'items'=>$items, 'ahora'=>$rowN[0]);
 	}
 
 ##### Sondeo AJAX: devuelve los avisos en JSON #####
@@ -740,7 +753,7 @@ while ($leads_ct > $o)
 $CB_POR_LEAD = array();
 if (count($ids_pagina) > 0)
 	{
-	$stmt="SELECT callback_id,lead_id,callback_time,comments,user,recipient from vicidial_callbacks where lead_id IN(" . implode(',', $ids_pagina) . ") and status IN('ACTIVE','LIVE') order by callback_time asc;";
+	$stmt="SELECT callback_id,lead_id,callback_time,comments,user,recipient,TIMESTAMPDIFF(MINUTE,NOW(),callback_time) as minutos from vicidial_callbacks where lead_id IN(" . implode(',', $ids_pagina) . ") and status IN('ACTIVE','LIVE') order by callback_time asc;";
 	if ($DB) {echo "|$stmt|\n";}
 	$rslt=mysql_to_mysqli($stmt, $link);
 	$ct = mysqli_num_rows($rslt);
@@ -822,137 +835,157 @@ require("admin_header.php");
 ?>
 
 <style type="text/css">
-/* Panel de Leads: estilos propios, todos con prefijo lp- para no pisar nada */
-.lp-wrap { padding: 16px 18px 40px 18px; font-size: 13px; color: #1f2937; }
+/* Panel de Leads.
+   Todo lleva prefijo lp- para no pisar estilos del admin. Los colores, radios y
+   sombras salen de las variables del skin (vicidial_modern.php) y caen en el
+   valor de reserva si el skin no esta activo, para que el panel se vea igual
+   que el resto de la administracion. */
+.lp-wrap {
+	padding: 14px 16px 34px 16px;
+	font-family: inherit;
+	font-size: 13px;
+	color: #1f2937;
+	}
 .lp-wrap * { box-sizing: border-box; }
+.lp-wrap input, .lp-wrap select, .lp-wrap textarea, .lp-wrap button {
+	font-family: inherit;
+	font-size: 12.5px;
+	}
 
-.lp-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.lp-title { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
-.lp-sub { font-size: 12px; color: #64748b; margin: 2px 0 0 0; }
+/* Encabezado */
+.lp-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+	padding-bottom: 10px; margin-bottom: 14px;
+	border-bottom: 1px solid var(--vici-border, #d3dbe6); }
+.lp-title { font-size: 17px; font-weight: 700; margin: 0; }
+.lp-sub { font-size: 12px; color: #64748b; margin: 3px 0 0 0; }
 .lp-top-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
-.lp-card { background: #fff; border: 1px solid #d3dbe6; border-radius: 10px;
-	box-shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 14px rgba(15,23,42,.05);
-	padding: 14px; margin-bottom: 14px; }
-.lp-card h2 { font-size: 13px; font-weight: 700; margin: 0 0 10px 0; color: #334155;
+/* Bloques */
+.lp-card { background: #fff;
+	border: 1px solid var(--vici-border, #d3dbe6);
+	border-radius: var(--vici-radius-sm, 6px);
+	padding: 12px 14px; margin-bottom: 14px; }
+.lp-card h2 { font-size: 11px; font-weight: 700; margin: 0 0 10px 0; color: #64748b;
 	text-transform: uppercase; letter-spacing: .06em; }
 
-/* Avisos */
-.lp-msg { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-weight: 600; }
-.lp-msg-ok    { background: #e6f4ea; color: #14622d; border: 1px solid #b7e0c3; }
-.lp-msg-error { background: #fdecec; color: #991b1b; border: 1px solid #f0bcbc; }
-.lp-msg-aviso { background: #fef6e0; color: #854d0e; border: 1px solid #f2dea6; }
+/* Mensajes */
+.lp-msg { padding: 9px 12px; border-radius: var(--vici-radius-sm, 6px);
+	margin-bottom: 14px; border: 1px solid var(--vici-border, #d3dbe6); background: #fff; }
+.lp-msg-ok    { border-left: 3px solid #2e6b4f; }
+.lp-msg-error { border-left: 3px solid #9c3a3a; }
+.lp-msg-aviso { border-left: 3px solid #8a6234; }
 
-/* Recordatorios de agendamientos */
-.lp-alertas { border-left: 4px solid #b45309; }
-.lp-alertas.lp-vencidos { border-left-color: #c62828; }
-.lp-alerta-row { display: flex; align-items: center; gap: 10px; padding: 7px 0;
-	border-bottom: 1px dashed rgba(15,23,42,.10); flex-wrap: wrap; }
-.lp-alerta-row:last-child { border-bottom: 0; }
-.lp-alerta-hora { font-weight: 700; min-width: 116px; }
+/* Recordatorios */
+.lp-alertas { border-left: 3px solid var(--vici-menu, #015B91); }
+.lp-alertas.lp-vencidos { border-left-color: #9c3a3a; }
+.lp-alerta-row { display: flex; align-items: baseline; gap: 10px; padding: 6px 0;
+	border-top: 1px solid rgba(15,23,42,.06); flex-wrap: wrap; }
+.lp-alerta-row:first-child { border-top: 0; }
+.lp-alerta-hora { font-weight: 600; min-width: 92px; font-variant-numeric: tabular-nums; }
 .lp-alerta-nom { font-weight: 600; }
-.lp-alerta-tel { color: #475569; font-variant-numeric: tabular-nums; }
-.lp-alerta-com { color: #64748b; font-style: italic; }
+.lp-alerta-tel { font-variant-numeric: tabular-nums; }
 .lp-alerta-acc { margin-left: auto; display: flex; gap: 6px; }
-.lp-cuenta { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 700; }
-.lp-cuenta-venc { background: #fdecec; color: #991b1b; }
-.lp-cuenta-prox { background: #fef6e0; color: #854d0e; }
+.lp-alerta-com { color: #64748b; }
+.lp-cuenta { font-size: 11px; font-weight: 400; color: #64748b;
+	text-transform: none; letter-spacing: 0; margin-left: 8px; }
 
 /* Pestanias de tipo */
-.lp-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-.lp-tab { display: flex; align-items: center; gap: 8px; text-decoration: none;
-	background: #fff; border: 1px solid #d3dbe6; border-radius: 999px;
-	padding: 7px 14px; color: #334155; font-weight: 600; font-size: 12.5px;
-	transition: box-shadow .13s ease, border-color .13s ease, transform .06s ease; }
-.lp-tab:hover { border-color: #94a3b8; box-shadow: 0 2px 8px rgba(15,23,42,.08); opacity: 1; }
-.lp-tab .lp-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-.lp-tab .lp-n { background: rgba(15,23,42,.07); border-radius: 999px; padding: 1px 8px;
-	font-size: 11.5px; font-variant-numeric: tabular-nums; }
-.lp-tab-on { color: #fff; border-color: transparent; box-shadow: 0 2px 10px rgba(15,23,42,.18); }
-.lp-tab-on .lp-n { background: rgba(255,255,255,.22); color: #fff; }
-.lp-tab-on .lp-dot { background: #fff !important; }
+.lp-tabs { display: flex; flex-wrap: wrap; margin-bottom: 14px;
+	border-bottom: 1px solid var(--vici-border, #d3dbe6); }
+.lp-tab { text-decoration: none; padding: 7px 14px; color: #475569;
+	font-size: 12.5px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.lp-tab:hover { color: #1f2937; opacity: 1; }
+.lp-tab .lp-n { color: #94a3b8; margin-left: 5px; font-variant-numeric: tabular-nums; }
+.lp-tab-on { color: #1f2937; font-weight: 600; border-bottom-color: var(--vici-menu, #015B91); }
+.lp-tab-on .lp-n { color: #64748b; }
 
 /* Filtros */
 .lp-filtros { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
 .lp-campo { display: flex; flex-direction: column; gap: 3px; }
-.lp-campo label { font-size: 11px; font-weight: 700; color: #64748b;
-	text-transform: uppercase; letter-spacing: .05em; }
-.lp-campo input, .lp-campo select { font-size: 12.5px; padding: 5px 8px;
-	border: 1px solid #d3dbe6; border-radius: 6px; min-width: 130px; background: #fff; }
-.lp-campo-ancho input { min-width: 230px; }
+.lp-campo label { font-size: 11px; color: #64748b; }
+.lp-campo input, .lp-campo select { padding: 4px 7px;
+	border: 1px solid var(--vici-border, #d3dbe6);
+	border-radius: var(--vici-radius-sm, 6px); min-width: 128px; background: #fff; }
+.lp-campo-ancho input { min-width: 220px; }
 
 /* Botones */
-.lp-btn { display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-	font-size: 12.5px; font-weight: 600; padding: 6px 13px; border-radius: 6px;
-	border: 1px solid rgba(15,23,42,.14); background: #fff; color: #1f2937;
-	text-decoration: none; transition: filter .13s ease, transform .06s ease; }
-.lp-btn:hover { filter: brightness(.97); opacity: 1; }
-.lp-btn:active { transform: translateY(1px); }
-.lp-btn-primario { background: #015B91; border-color: rgba(0,0,0,.14); color: #fff; }
-.lp-btn-sec { background: #f1f5f9; }
-.lp-btn-mini { font-size: 11px; padding: 3px 8px; border-radius: 5px; }
+.lp-btn { display: inline-block; cursor: pointer; font-weight: 600;
+	padding: 5px 11px; border-radius: var(--vici-radius-sm, 6px);
+	border: 1px solid var(--vici-border, #d3dbe6); background: #fff; color: #334155;
+	text-decoration: none; }
+.lp-btn:hover { background: #f1f5f9; opacity: 1; }
+.lp-btn-primario { background: var(--vici-menu, #015B91); border-color: rgba(0,0,0,.14); color: #fff; }
+.lp-btn-primario:hover { background: var(--vici-menu, #015B91); filter: brightness(1.1); }
+.lp-btn-mini { padding: 2px 8px; font-size: 11px; font-weight: 400; }
 
-/* Barra de acciones masivas */
-.lp-bulk { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-	background: #eef2f7; border: 1px solid #d3dbe6; border-radius: 8px;
-	padding: 8px 12px; margin-bottom: 10px; }
-.lp-bulk-info { font-weight: 600; color: #475569; }
+/* Barra de acciones */
+.lp-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+	padding: 8px 0; }
+.lp-bulk-info { color: #64748b; }
 
 /* Tabla */
-.lp-tabla-cont { overflow-x: auto; border: 1px solid #d3dbe6; border-radius: 10px; background: #fff; }
+.lp-tabla-cont { overflow-x: auto; border: 1px solid var(--vici-border, #d3dbe6);
+	border-radius: var(--vici-radius-sm, 6px); background: #fff; }
 table.lp-tabla { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-table.lp-tabla th { text-align: left; font-size: 11px; text-transform: uppercase;
-	letter-spacing: .05em; color: #475569; background: #f4f7fb; padding: 9px 10px;
-	border-bottom: 2px solid rgba(15,23,42,.10); white-space: nowrap; }
-table.lp-tabla td { padding: 8px 10px; border-bottom: 1px solid rgba(15,23,42,.07); vertical-align: middle; }
-table.lp-tabla tr:hover td { background: #f7faff; }
+table.lp-tabla th { text-align: left; font-size: 11px; font-weight: 600; color: #64748b;
+	background: #f6f8fb; padding: 8px 10px; white-space: nowrap;
+	border-bottom: 1px solid var(--vici-border, #d3dbe6); }
+table.lp-tabla td { padding: 7px 10px; vertical-align: top;
+	border-bottom: 1px solid rgba(15,23,42,.06); }
+table.lp-tabla tr:last-child td { border-bottom: 0; }
+table.lp-tabla tbody tr:hover td { background: #f8fafc; }
 .lp-nom { font-weight: 600; }
 .lp-tel { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .lp-muted { color: #64748b; font-size: 11.5px; }
 .lp-nowrap { white-space: nowrap; }
 
-/* Etiqueta de tipo */
-.lp-badge { display: inline-block; padding: 2px 9px; border-radius: 999px;
-	font-size: 11px; font-weight: 700; color: #fff; white-space: nowrap; }
-.lp-badge-suave { color: #1f2937; background: rgba(15,23,42,.07); }
+/* Etiqueta de tipo: chip plano con borde, sin relleno saturado */
+.lp-badge { display: inline-block; padding: 1px 7px; border-radius: 3px;
+	font-size: 11px; font-weight: 600; white-space: nowrap;
+	border: 1px solid currentColor; background: #fff; }
+.lp-badge-suave { color: #475569; border-color: var(--vici-border, #d3dbe6);
+	background: #f6f8fb; font-weight: 400; font-variant-numeric: tabular-nums; }
 
 /* Acciones de fila */
-.lp-acc { display: flex; gap: 4px; flex-wrap: nowrap; }
-.lp-acc button { border: 1px solid rgba(15,23,42,.14); background: #fff; cursor: pointer;
-	width: 26px; height: 24px; border-radius: 5px; font-size: 12px; line-height: 1;
-	padding: 0; transition: filter .13s ease; }
-.lp-acc button:hover { filter: brightness(.94); }
+.lp-acc { display: flex; gap: 6px; align-items: center; white-space: nowrap; }
+.lp-acc select { padding: 2px 5px; font-size: 11.5px;
+	border: 1px solid var(--vici-border, #d3dbe6); border-radius: var(--vici-radius-sm, 6px); }
 
 /* Paginacion */
-.lp-pag { display: flex; align-items: center; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-.lp-pag a, .lp-pag span { font-size: 12.5px; padding: 5px 11px; border-radius: 6px;
-	border: 1px solid #d3dbe6; background: #fff; text-decoration: none; color: #334155; }
-.lp-pag .lp-pag-on { background: #015B91; color: #fff; border-color: transparent; font-weight: 700; }
+.lp-pag { display: flex; align-items: center; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+.lp-pag a, .lp-pag span.lp-pag-on { padding: 4px 9px; border-radius: var(--vici-radius-sm, 6px);
+	border: 1px solid var(--vici-border, #d3dbe6); background: #fff;
+	text-decoration: none; color: #334155; }
+.lp-pag a:hover { background: #f1f5f9; opacity: 1; }
+.lp-pag .lp-pag-on { background: #f1f5f9; font-weight: 600; }
 
-/* Modal de agendamiento */
-.lp-modal-fondo { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.45);
+/* Ventana de agendamiento */
+.lp-modal-fondo { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.35);
 	z-index: 900; align-items: center; justify-content: center; padding: 20px; }
 .lp-modal-fondo.lp-abierto { display: flex; }
-.lp-modal { background: #fff; border-radius: 12px; width: 460px; max-width: 100%;
-	box-shadow: 0 20px 50px rgba(15,23,42,.3); padding: 18px; }
-.lp-modal h3 { margin: 0 0 4px 0; font-size: 16px; }
-.lp-modal-lead { color: #64748b; font-size: 12.5px; margin-bottom: 14px; }
-.lp-modal-fila { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.lp-modal { background: #fff; border: 1px solid var(--vici-border, #d3dbe6);
+	border-radius: var(--vici-radius, 8px); width: 430px; max-width: 100%;
+	box-shadow: var(--vici-shadow, 0 4px 14px rgba(15,23,42,.18)); padding: 16px; }
+.lp-modal h3 { margin: 0 0 3px 0; font-size: 14px; }
+.lp-modal-lead { color: #64748b; font-size: 12px; margin-bottom: 12px; }
+.lp-modal-fila { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 9px; }
+.lp-modal label { display: block; font-size: 11px; color: #64748b; margin-bottom: 2px; }
 .lp-modal input[type=text], .lp-modal input[type=date], .lp-modal input[type=time],
-.lp-modal select, .lp-modal textarea { width: 100%; padding: 6px 8px; font-size: 12.5px;
-	border: 1px solid #d3dbe6; border-radius: 6px; }
+.lp-modal select, .lp-modal textarea { width: 100%; padding: 4px 7px;
+	border: 1px solid var(--vici-border, #d3dbe6); border-radius: var(--vici-radius-sm, 6px); }
 .lp-modal-acc { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
 .lp-rapidos { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
 
 /* Avisos flotantes */
-.lp-toasts { position: fixed; right: 18px; bottom: 18px; z-index: 950;
-	display: flex; flex-direction: column; gap: 10px; max-width: 340px; }
-.lp-toast { background: #fff; border-left: 4px solid #b45309; border-radius: 10px;
-	box-shadow: 0 10px 30px rgba(15,23,42,.22); padding: 12px 14px; animation: lp-in .25s ease; }
-.lp-toast.lp-toast-venc { border-left-color: #c62828; }
-.lp-toast-tit { font-weight: 700; margin-bottom: 3px; }
-.lp-toast-cerrar { float: right; cursor: pointer; color: #94a3b8; font-weight: 700; }
-@keyframes lp-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.lp-toasts { position: fixed; right: 16px; bottom: 16px; z-index: 950;
+	display: flex; flex-direction: column; gap: 8px; max-width: 320px; }
+.lp-toast { background: #fff; border: 1px solid var(--vici-border, #d3dbe6);
+	border-left: 3px solid var(--vici-menu, #015B91);
+	border-radius: var(--vici-radius-sm, 6px);
+	box-shadow: var(--vici-shadow, 0 4px 14px rgba(15,23,42,.18)); padding: 10px 12px; }
+.lp-toast-venc { border-left-color: #9c3a3a; }
+.lp-toast-tit { font-weight: 600; margin-bottom: 2px; }
+.lp-toast-cerrar { float: right; cursor: pointer; color: #94a3b8; }
 
 @media (max-width: 900px) {
 	.lp-campo-ancho input { min-width: 160px; }
@@ -969,8 +1002,8 @@ table.lp-tabla tr:hover td { background: #f7faff; }
 	</div>
 	<div class="lp-top-right">
 		<span id="lp-estado-avisos" class="lp-muted">Avisos cada 60 s</span>
-		<button type="button" class="lp-btn lp-btn-sec" id="lp-btn-permiso" onclick="lpPedirPermiso();">Activar avisos del navegador</button>
-		<a class="lp-btn lp-btn-sec" href="<?php echo lp_h(lp_url(array('pagina'=>1))); ?>">Refrescar</a>
+		<button type="button" class="lp-btn" id="lp-btn-permiso" onclick="lpPedirPermiso();">Activar avisos del navegador</button>
+		<a class="lp-btn" href="<?php echo lp_h(lp_url(array('pagina'=>1))); ?>">Refrescar</a>
 	</div>
 </div>
 
@@ -1023,10 +1056,10 @@ $clase_alertas = ($AVISOS['vencidos'] > 0) ? 'lp-card lp-alertas lp-vencidos' : 
 			?>
 			<div class="lp-alerta-row">
 				<span class="lp-alerta-hora"><?php echo lp_h(date("d/m H:i", strtotime($av['hora']))); ?></span>
-				<span class="lp-badge" style="background:<?php echo ($av['vencido'] ? '#c62828' : '#b45309'); ?>"><?php echo lp_h($cuando); ?></span>
+				<span class="lp-badge" style="color:<?php echo ($av['vencido'] ? '#9c3a3a' : '#8a6234'); ?>"><?php echo lp_h($cuando); ?></span>
 				<span class="lp-alerta-nom"><?php echo lp_h($av['nombre']); ?></span>
 				<span class="lp-alerta-tel"><?php echo lp_h($av['telefono']); ?></span>
-				<?php if (strlen($av['comentarios']) > 0) { ?>
+				<?php if (lp_hay($av["comentarios"])) { ?>
 					<span class="lp-alerta-com"><?php echo lp_h($av['comentarios']); ?></span>
 				<?php } ?>
 				<span class="lp-muted"><?php echo lp_h($av['campania']); ?> &middot; <?php echo lp_h($av['usuario']); ?></span>
@@ -1045,9 +1078,7 @@ $clase_alertas = ($AVISOS['vencidos'] > 0) ? 'lp-card lp-alertas lp-vencidos' : 
 <?php ##### Pestanias por tipo ##### ?>
 <div class="lp-tabs">
 	<a class="lp-tab<?php if ($tipo=='TODOS') {echo ' lp-tab-on';} ?>"
-	   <?php if ($tipo=='TODOS') {echo 'style="background:#334155;"';} ?>
-	   href="<?php echo lp_h(lp_url(array('tipo'=>'TODOS','pagina'=>1,'orden'=>''))); ?>">
-		<span class="lp-dot" style="background:#334155"></span> Todos
+	   href="<?php echo lp_h(lp_url(array('tipo'=>'TODOS','pagina'=>1,'orden'=>''))); ?>">Todos
 		<span class="lp-n"><?php echo (int)$LP_CONTEO['TODOS']; ?></span>
 	</a>
 	<?php
@@ -1056,11 +1087,8 @@ $clase_alertas = ($AVISOS['vencidos'] > 0) ? 'lp-card lp-alertas lp-vencidos' : 
 		$on = ($tipo == $tp);
 		?>
 		<a class="lp-tab<?php if ($on) {echo ' lp-tab-on';} ?>"
-		   <?php if ($on) {echo 'style="background:' . lp_h($cfg['color']) . ';"';} ?>
 		   title="<?php echo lp_h($cfg['ayuda']); ?>"
-		   href="<?php echo lp_h(lp_url(array('tipo'=>$tp,'pagina'=>1,'orden'=>''))); ?>">
-			<span class="lp-dot" style="background:<?php echo lp_h($cfg['color']); ?>"></span>
-			<?php echo lp_h($cfg['nombre']); ?>
+		   href="<?php echo lp_h(lp_url(array('tipo'=>$tp,'pagina'=>1,'orden'=>''))); ?>"><?php echo lp_h($cfg['nombre']); ?>
 			<span class="lp-n"><?php echo (int)$LP_CONTEO[$tp]; ?></span>
 		</a>
 		<?php
@@ -1175,7 +1203,7 @@ $clase_alertas = ($AVISOS['vencidos'] > 0) ? 'lp-card lp-alertas lp-vencidos' : 
 			<label>&nbsp;</label>
 			<div style="display:flex; gap:6px;">
 				<button type="submit" class="lp-btn lp-btn-primario">Filtrar</button>
-				<a class="lp-btn lp-btn-sec" href="<?php echo lp_h($PHP_SELF); ?>">Limpiar</a>
+				<a class="lp-btn" href="<?php echo lp_h($PHP_SELF); ?>">Limpiar</a>
 			</div>
 		</div>
 	</div>
@@ -1192,6 +1220,9 @@ $ocultos = array('tipo'=>$tipo,'campaign_id'=>$campaign_id,'list_id'=>$list_id,'
 foreach ($ocultos as $k => $v)
 	{echo "<input type=\"hidden\" name=\"" . lp_h($k) . "\" value=\"" . lp_h($v) . "\">\n";}
 ?>
+<?php # Lo llena el desplegable de cada fila. Va antes que los botones que tambien
+      # se llaman row_action, para que el valor del boton pulsado sea el ultimo. ?>
+<input type="hidden" name="row_action" id="lp-row-action" value="">
 
 <div class="lp-bulk">
 	<span class="lp-bulk-info"><span id="lp-sel-count">0</span> seleccionados</span>
@@ -1202,7 +1233,6 @@ foreach ($ocultos as $k => $v)
 		if ($tp == 'AGENDADO') {continue;}		# agendar necesita fecha y hora
 		?>
 		<button type="submit" name="bulk_tipo" value="<?php echo lp_h($tp); ?>" class="lp-btn"
-			style="border-left:4px solid <?php echo lp_h($cfg['color']); ?>"
 			onclick="return lpConfirmarBulk('<?php echo lp_h($cfg['nombre']); ?>');"><?php echo lp_h($cfg['nombre']); ?></button>
 		<?php
 		}
@@ -1250,13 +1280,13 @@ foreach ($LEADS as $L)
 		</td>
 		<td>
 			<div class="lp-nom"><?php echo lp_h($nombre); ?></div>
-			<?php if ( (strlen($L['city']) > 0) or (strlen($L['state']) > 0) ) { ?>
+			<?php if ( lp_hay($L["city"]) or lp_hay($L["state"]) ) { ?>
 				<div class="lp-muted"><?php echo lp_h(trim($L['city'] . ' ' . $L['state'])); ?></div>
 			<?php } ?>
 		</td>
 		<td class="lp-tel">
 			<?php echo lp_h($telefono); ?>
-			<?php if ( (strlen($L['alt_phone']) > 0) and ($LOGadmin_hide_phone_data < 1) ) { ?>
+			<?php if ( (lp_hay($L["alt_phone"])) and ($LOGadmin_hide_phone_data < 1) ) { ?>
 				<div class="lp-muted"><?php echo lp_h($L['alt_phone']); ?></div>
 			<?php } ?>
 		</td>
@@ -1275,11 +1305,11 @@ foreach ($LEADS as $L)
 			<?php
 			if ($cb !== false)
 				{
-				$falta = round((strtotime($cb['callback_time']) - time()) / 60);
+				$falta = (int)$cb['minutos'];
 				$color_cb = ($falta <= 0) ? '#c62828' : '#b45309';
 				echo "<div style=\"font-weight:600; color:$color_cb\">" . lp_h(date("d/m/Y H:i", strtotime($cb['callback_time']))) . "</div>\n";
 				echo "<div class=\"lp-muted\">" . lp_h($cb['recipient'] == 'USERONLY' ? 'solo ' . $cb['user'] : 'cualquier agente') . "</div>\n";
-				if (strlen($cb['comments']) > 0)
+				if (lp_hay($cb["comments"]))
 					{echo "<div class=\"lp-muted\">" . lp_h($cb['comments']) . "</div>\n";}
 				?>
 				<button type="submit" name="row_action" value="CANCELAR_CB" class="lp-btn lp-btn-mini"
@@ -1295,25 +1325,28 @@ foreach ($LEADS as $L)
 		<td><?php echo (int)$L['called_count']; ?></td>
 		<td class="lp-nowrap lp-muted">
 			<?php
-			if ( (strlen($L['last_local_call_time']) > 0) and ($L['last_local_call_time'] != '0000-00-00 00:00:00') )
+			if ( (lp_hay($L["last_local_call_time"])) and ($L['last_local_call_time'] != '0000-00-00 00:00:00') )
 				{echo lp_h(date("d/m/Y H:i", strtotime($L['last_local_call_time'])));}
 			else
 				{echo '-';}
 			?>
-			<?php if (strlen($L['user']) > 0) { ?><div><?php echo lp_h($L['user']); ?></div><?php } ?>
+			<?php if (lp_hay($L["user"])) { ?><div><?php echo lp_h($L['user']); ?></div><?php } ?>
 		</td>
 		<td>
 			<div class="lp-acc">
-				<button type="submit" name="row_action" value="CONTACTADO:<?php echo lp_h($L['lead_id']); ?>"
-					title="Marcar como Contactado" style="color:#1e8e3e">&#10003;</button>
-				<button type="submit" name="row_action" value="NO_CONTACTADO:<?php echo lp_h($L['lead_id']); ?>"
-					title="Marcar como No contactado" style="color:#64748b">&#8635;</button>
-				<button type="button" title="Agendar a futuro" style="color:#b45309"
-					onclick="lpAbrirAgenda('<?php echo lp_h($L['lead_id']); ?>','<?php echo lp_h(addslashes($nombre)); ?>','<?php echo lp_h($telefono); ?>');">&#128197;</button>
-				<button type="submit" name="row_action" value="ERRONEO:<?php echo lp_h($L['lead_id']); ?>"
-					title="Marcar como Contacto erroneo" style="color:#c62828">&#10007;</button>
-				<button type="submit" name="row_action" value="PREVENTA:<?php echo lp_h($L['lead_id']); ?>"
-					title="Marcar como Preventa" style="color:#6d28d9">&#9733;</button>
+				<select onchange="lpMarcarFila(this);" title="Cambiar el tipo de este lead">
+					<option value="">Marcar como...</option>
+					<?php
+					foreach ($LP_TIPOS as $tp2 => $cfg2)
+						{
+						if ($tp2 == 'AGENDADO') {continue;}		# agendar necesita fecha y hora
+						if ($tp2 == $tp) {continue;}			# ya esta en ese tipo
+						echo "<option value=\"$tp2:" . lp_h($L['lead_id']) . "\">" . lp_h($cfg2['nombre']) . "</option>\n";
+						}
+					?>
+				</select>
+				<button type="button" class="lp-btn lp-btn-mini"
+					onclick="lpAbrirAgenda('<?php echo lp_h($L['lead_id']); ?>','<?php echo lp_h(addslashes($nombre)); ?>','<?php echo lp_h($telefono); ?>');">Agendar</button>
 			</div>
 		</td>
 	</tr>
@@ -1395,7 +1428,7 @@ foreach ($LEADS as $L)
 		</div>
 
 		<div class="lp-modal-acc">
-			<button type="button" class="lp-btn lp-btn-sec" onclick="lpCerrarAgenda();">Cancelar</button>
+			<button type="button" class="lp-btn" onclick="lpCerrarAgenda();">Cancelar</button>
 			<button type="submit" name="row_action" value="AGENDAR" class="lp-btn lp-btn-primario">Agendar y avisar</button>
 		</div>
 	</div>
@@ -1418,6 +1451,15 @@ function lpContar()
 	{
 	var n = document.querySelectorAll('.lp-chk:checked').length;
 	document.getElementById('lp-sel-count').innerHTML = n;
+	}
+/* Cambio de tipo desde el desplegable de una fila */
+function lpMarcarFila(sel)
+	{
+	if (!sel.value) {return;}
+	var texto = sel.options[sel.selectedIndex].text;
+	if (!confirm('Marcar este lead como "' + texto + '"?')) {sel.value = ''; return;}
+	document.getElementById('lp-row-action').value = sel.value;
+	document.getElementById('lp-form').submit();
 	}
 function lpConfirmarBulk(nombre)
 	{

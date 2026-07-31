@@ -491,6 +491,12 @@ else if ($android_header)
 else
 {
 if ($no_title < 1) {echo "</title>\n";}
+# Hoja de estilos comun. 44 de las paginas que incluyen esta cabecera nunca la
+# enlazaban, y se quedaban sin el layout ni los estilos (Panel de Leads, Search
+# For A Lead, realtime_report, user_status, lead_tools...). Emitirla aqui las
+# cubre todas; en las que ya la enlazan por su cuenta el navegador reutiliza la
+# misma URL y las reglas duplicadas no cambian nada.
+echo "<link rel=\"stylesheet\" type=\"text/css\" href=\"vicidial_stylesheet.php\">\n";
 echo "<script language=\"Javascript\">\n";
 echo "var field_name = '';\n";
 echo "var user = '$PHP_AUTH_USER';\n";

@@ -257,12 +257,13 @@ textarea.chat_box, textarea.chat_box_ended {
 
 /* ---------- Botones ---------- */
 /* Solo se reestilizan los botones sin color propio y los que usan el color de
-   boton del tema; los que llevan un color inline distinto (indicadores de
-   estado en reportes en tiempo real) se dejan intactos. */
-input[type="submit"]:not([class]):not([style*="background"]),
-input[type="button"]:not([class]):not([style*="background"]),
-input[type="reset"]:not([class]):not([style*="background"]),
-button:not([class]):not([style*="background"]),
+   boton del tema. Los que declaran su propio color en linea se dejan intactos:
+   indicadores de estado de los reportes en tiempo real y los botones de accion
+   del Panel de Leads (marcar contactado, erroneo, preventa...). */
+input[type="submit"]:not([class]):not([style*="background"]):not([style*="color"]),
+input[type="button"]:not([class]):not([style*="background"]):not([style*="color"]),
+input[type="reset"]:not([class]):not([style*="background"]):not([style*="color"]),
+button:not([class]):not([style*="background"]):not([style*="color"]),
 input[type="submit"][style*="#<?php echo $MODbutton; ?>"],
 input[type="button"][style*="#<?php echo $MODbutton; ?>"] {
 	background: var(--vici-accent) !important;
