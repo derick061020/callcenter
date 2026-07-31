@@ -875,3 +875,9 @@ padding-right:3px;
     display: inline-block;
     font-size: 12px;
 	}
+
+<?php
+# MODERN SKIN - capa visual opcional, se carga al final para poder ajustar los
+# estilos anteriores. Comentar esta linea para volver al aspecto original.
+if (file_exists("vicidial_modern.php")) {include("vicidial_modern.php");}
+?>
